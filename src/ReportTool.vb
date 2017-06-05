@@ -19,16 +19,13 @@ Public Sub Test_Basic()
     Dim targetWorksheet As Worksheet
     Set targetWorksheet = CreateSheet("Rpt1")
     targetWorksheet.Paste
-    targetWorksheet.Activate
+    'targetWorksheet.Activate
+    targetWorksheet.Columns.EntireColumn.Autofit
     
     Dim filteredRows As Range
-    Set filteredRows = GetRowsByKeyValuePair("APPT_STATS", "CONFIRMED", Sheets("Rpt1"))
-    'MsgBox filteredRows.Rows.Count
-    'Set filteredRows = FilterRangeByKeyValuePair(filteredRows, "LANGUAGE", "TAMIL")
-    Set filteredRows = FilterRangeByKeyValuePair(filteredRows, "LANGUAGE", "PERSIAN")
-    Set filteredRows = FilterRangeByKeyValuePair(filteredRows, "APPT_TYPE", "HCIS Phone  CPT - iPM Patient")
-    
-    'Selection.Clear
+    Set filteredRows = GetRowsByKeyValuePair("APPT_STATS", "CONFIRMED", Sheets("Rpt1")) 'GetRows-KVP required first
+    Set filteredRows = FilterRangeByKeyValuePair(filteredRows, "LANGUAGE", "PERSIAN") 'FilterRange-KVP for subsequent narrowing
+    Set filteredRows = FilterRangeByKeyValuePair(filteredRows, "APPT_TYPE", "HCIS Phone  CPT - iPM Patient") 'Chaining filters
     
     filteredRows.Select
     Selection.Copy
@@ -36,22 +33,13 @@ Public Sub Test_Basic()
     Set targetWorksheet = CreateSheet()
     targetWorksheet.Paste
     targetWorksheet.Activate
-    
-    Set arrColumns = Union( _
-        GetColumnByHeader("LANGUAGE"), _
-        GetColumnByHeader("APPT_STATS"), _
-        GetColumnByHeader("APPT_TYPE"), _
-        GetColumnByHeader("APPT_DATE_TIME"), _
-        GetColumnByHeader("RESOURCE"), _
-        GetColumnByHeader("DURATION"), _
-        GetColumnByHeader("LOCATION") _
-    )
-    
-    arrColumns.EntireColumn.AutoFit
+    targetWorksheet.Columns.EntireColumn.Autofit
     
     SortColumn "APPT_DATE_TIME"
     
     Application.CutCopyMode = True
+    
+    MsgBox "Reports Complete"
 End Sub
 
 Public Sub Info()
@@ -109,24 +97,21 @@ Public Function GetRowsByKeyValuePair(columnName As String, rowValue As String, 
         End If
     Next
     
-    'MsgBox matchedRange.Rows.Count
-    
     Set GetRowsByKeyValuePair = matchedRange
 End Function
 
-Public Function FilterRangeByKeyValuePair(rng As Range, columnName As String, rowValue As String) As Range
-    ' THIS SOME HOW BREAKS EVERYTHING
-    
+Public Function FilterRangeByKeyValuePair(rng As Range, columnName As String, rowValue As String, Optional exactMatch As Boolean = False) As Range
     Dim matchedRange As Range
     
-    'Set matchedRange = rng.Cells(1, 1).EntireRow
     Set matchedRange = rng.Range(rng.Cells(1, 1), rng.Cells(1, rng.Columns.Count))
     
     For c = 1 To rng.Columns.Count
         If rng.Cells(1, c).Value = columnName Then
             For a = 1 To rng.Areas.Count
                 For r = 1 To rng.Areas(a).Rows.Count
-                    If rng.Areas(a).Cells(r, c).Value = rowValue Then
+                    If exactMatch = False And InStr(1, rng.Areas(a).Cells(r, c).Value, rowValue, vbTextCompare) <> 0 Then
+                        Set matchedRange = Union(matchedRange, rng.Range(rng.Areas(a).Cells(r, 1), rng.Areas(a).Cells(r, rng.Columns.Count)))
+                    ElseIf exactMatch = True And rng.Areas(a).Cells(r, c).Value = rowValue Then
                         Set matchedRange = Union(matchedRange, rng.Range(rng.Areas(a).Cells(r, 1), rng.Areas(a).Cells(r, rng.Columns.Count)))
                     End If
                 Next
@@ -137,7 +122,11 @@ Public Function FilterRangeByKeyValuePair(rng As Range, columnName As String, ro
     Set FilterRangeByKeyValuePair = matchedRange
 End Function
 
-Public Function ConvertCellDateFormat(columnName As String)
+Public Function ConvertCellDateFormat(columnName As String, Optional ws As Worksheet)
+    If ws Is Nothing Then
+        Set ws = Application.ActiveSheet
+    End If
+
     Dim selectedRange As Range
     Set selectedRange = GetColumnByHeader(columnName)
     selectedRange.NumberFormat = "@"
@@ -177,3 +166,4 @@ Public Function SortColumn(columnName As String, Optional ws As Worksheet)
     End If
 
 End Function
+
